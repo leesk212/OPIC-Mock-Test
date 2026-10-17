@@ -21,8 +21,10 @@ Feedback (see README "Feedback options"):
   * scheduled task        — results stay queued (feedback/<name>.pending) for a scheduled
                              Claude task that grades them and writes feedback/<name>.json
 """
+import hmac
 import json
 import os
+import secrets
 import re
 import sys
 import urllib.error
@@ -42,6 +44,21 @@ NAME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(_[A-Za-z0-9-]{1,16})?$")
 MAX_AUDIO = 60 * 1024 * 1024
 MAX_JSON = 2 * 1024 * 1024
 DEFAULT_MODEL = "claude-sonnet-5-5"
+
+
+def access_token():
+    """Secret that remote (tunnelled) requests must present. Created on first run, git-ignored."""
+    f = ROOT / ".access_token"
+    if not f.exists():
+        f.write_text(secrets.token_urlsafe(24), encoding="utf-8")
+        try:
+            os.chmod(f, 0o600)
+        except OSError:
+            pass
+    return f.read_text(encoding="utf-8").strip()
+
+
+TOKEN = None
 
 
 def today():
@@ -134,7 +151,46 @@ class Handler(SimpleHTTPRequestHandler):
     def log_message(self, fmt, *args):
         sys.stderr.write("[%s] %s\n" % (datetime.now(KST).strftime("%H:%M:%S"), fmt % args))
 
+    # ---------- access control ----------
+    # Requests that arrive through a tunnel carry proxy headers. Those must present the
+    # access token once (?k=...), which is then kept in an HttpOnly cookie. Plain
+    # localhost requests are always allowed.
+    def _remote(self):
+        h = self.headers
+        return bool(h.get("Cf-Connecting-Ip") or h.get("X-Forwarded-For") or h.get("X-Forwarded-Host"))
+
+    def _cookie_token(self):
+        for part in (self.headers.get("Cookie") or "").split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == "opic_k":
+                return v
+        return ""
+
+    def _authorized(self):
+        if not self._remote():
+            return True
+        q = parse_qs(urlparse(self.path).query)
+        given = (q.get("k") or [""])[0]
+        if given and hmac.compare_digest(given, TOKEN):
+            self._set_cookie = True
+            return True
+        c = self._cookie_token()
+        return bool(c) and hmac.compare_digest(c, TOKEN)
+
+    def _deny(self):
+        body = ("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'>"
+                "<body style='font-family:system-ui;padding:40px;color:#222'><h2>잠겨 있어요</h2>"
+                "<p>이 시험 서버는 비밀 키가 있는 링크로만 열려요. 알림으로 받은 고정 링크로 다시 열어 주세요.</p>").encode("utf-8")
+        self.send_response(401)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def end_headers(self):
+        if getattr(self, "_set_cookie", False):
+            self.send_header("Set-Cookie", f"opic_k={TOKEN}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax")
+            self._set_cookie = False
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
@@ -163,8 +219,18 @@ class Handler(SimpleHTTPRequestHandler):
 
     # ---------- GET ----------
     def do_GET(self):
+        if not self._authorized():
+            return self._deny()
         u = urlparse(self.path)
         q = parse_qs(u.query)
+        if u.path == "/api/env.js":
+            body = b"window.OPIC_SERVER=true;"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/javascript")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if u.path == "/api/health":
             cfg = load_config()
             return self._json(200, {"ok": True, "today": today(), "instant_feedback": bool(cfg["provider"]),
@@ -225,6 +291,8 @@ class Handler(SimpleHTTPRequestHandler):
 
     # ---------- POST ----------
     def do_POST(self):
+        if not self._authorized():
+            return self._deny()
         u = urlparse(self.path)
         q = parse_qs(u.query)
         d = self._date(q)
@@ -311,11 +379,13 @@ class Handler(SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     for sub in ("sets", "results", "recordings", "feedback"):
         (ROOT / sub).mkdir(exist_ok=True)
+    TOKEN = access_token()
     cfg = load_config()
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"OPIc mock test: http://localhost:{PORT}")
     print("  feedback: " + (f"{cfg['provider']} · {cfg['model']}" if cfg["provider"]
                             else "copy-paste mode (no provider in config.json) — see README"))
+    print("  remote access: requests through a tunnel need ?k=<token from .access_token>")
     print("  stop: Ctrl+C")
     try:
         srv.serve_forever()

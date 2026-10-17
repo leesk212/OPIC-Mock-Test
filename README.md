@@ -4,10 +4,16 @@
 > screen: automatic recording with a live transcript, a question set built in the
 > real exam order, feedback aimed at the Advanced Low (AL) level, and an optional
 > nightly routine that fills your GitHub contribution graph.
+>
+> 🌐 **Website:** https://leesk212.github.io/OPIC-Mock-Test/
 
 ## ▶ Try it now — no install
 
-**https://leesk212.github.io/OPIC-Mock-Test/**
+| | |
+|---|---|
+| **Landing page** | https://leesk212.github.io/OPIC-Mock-Test/ |
+| **Start a test right away** | https://leesk212.github.io/OPIC-Mock-Test/web/index.html |
+| **Your own server, from anywhere** | `https://leesk212.github.io/OPIC-Mock-Test/go/#k=<your key>` (see [Remote access](#remote-access)) |
 
 Open it in **Chrome**, allow the microphone, press **Begin Test**. That's it.
 Recordings, transcripts and feedback stay in your browser.
@@ -27,6 +33,7 @@ There are two ways to run it. Both give you the same exam screen.
 | Question set | built-in bank, new every day | built-in bank, or a set you (or a scheduled task) drop into `sets/` |
 | Feedback | copy-paste, or your own API key saved in the browser | copy-paste, API key or local model in `config.json` |
 | Nightly automation | — | optional (set generation, grading, GitHub study log) |
+| Use from phone / outside | yes | yes, through a tunnel and the `/go/` fixed link |
 
 ### Local in three commands
 
@@ -67,7 +74,7 @@ in your browser's storage, in local mode in `config.json` (git-ignored).
 It was built for one learner stuck at IH who wanted daily, realistic practice
 instead of reading scripts.
 
-**Contents** — [Screens](#screens) · [A day with it](#a-day-with-it) · [How it works](#how-it-works) · [Run it yourself](#run-it-yourself) · [How it was built](#how-it-was-built)
+**Contents** — [Screens](#screens) · [A day with it](#a-day-with-it) · [How it works](#how-it-works) · [Remote access](#remote-access) · [Run it yourself](#run-it-yourself) · [How it was built](#how-it-was-built)
 
 ## Screens
 
@@ -169,6 +176,8 @@ certificates, no accounts, no build step — plain HTML/CSS/JS.
 
 | Path | Role |
 |---|---|
+| `index.html` | Landing page of the GitHub Pages site. |
+| `go/index.html`, `go/tunnel.json` | Fixed link that forwards to the current tunnel address of your own server. |
 | `web/store.js` | Online mode: answers the same `/api` calls in the browser (localStorage, IndexedDB, browser-side grading). |
 | `server.py` | Serves `web/`, stores recordings and results, returns tonight's set, grades with the API when a key is configured, queues grading otherwise. Python 3 standard library only. |
 | `web/index.html` | Setup page (mode, voice, mic test). |
@@ -228,6 +237,32 @@ and commits it with your GitHub identity. One study day, one green square.
 Transcripts, recordings and the detailed feedback are git-ignored and never pushed.
 
 ---
+
+## Remote access
+
+Run the local server at home and take the test from any device — phone
+included — through one link that never changes.
+
+1. `scripts/start.command` (double-click on macOS) starts `server.py`, downloads
+   `cloudflared` into `bin/` the first time, and opens a free **Cloudflare quick
+   tunnel** (no account, no login). The tunnel's random `https://…trycloudflare.com`
+   address is written to `tunnel.json`.
+2. That address is copied into `go/tunnel.json` in this repository (the
+   author's nightly task does it automatically).
+3. You keep one bookmark: `https://leesk212.github.io/OPIC-Mock-Test/go/#k=<key>`.
+   The `/go/` page reads `go/tunnel.json` and forwards you to the tunnel with the
+   key. The key sits after `#`, so it is never sent to GitHub; the page remembers
+   it in your browser for next time.
+
+**Access control.** `server.py` creates a random key in `.access_token` on first
+run (git-ignored). Requests that arrive through a tunnel (they carry
+`Cf-Connecting-Ip` / `X-Forwarded-*` headers) must present `?k=<key>` once and
+then keep an `HttpOnly; Secure` cookie; everything else gets `401`. Plain
+`localhost` requests are always allowed. The tunnel address in `go/tunnel.json`
+is public, but useless without the key.
+
+Quick tunnels change address whenever `cloudflared` restarts and come with no
+uptime guarantee — fine for a personal practice server, not for production.
 
 ## Run it yourself
 
@@ -291,10 +326,12 @@ This project came out of a single long conversation with Claude, iterating from
    stay on the learner's machine, and Claude's role shrinks to what it is good
    at — writing the nightly set, grading against the AL rubric, and keeping the
    study log — through scheduled tasks.
-5. **Hosting for everyone** — the same pages published on GitHub Pages, with
+5. **Remote access** — a Cloudflare quick tunnel, a fixed `/go/` link on
+   GitHub Pages that follows the tunnel, and key-based access control.
+6. **Hosting for everyone** — the same pages published on GitHub Pages, with
    a browser storage layer and grading that works with any chat assistant, an
    API key or a local model.
-6. **Iterations from real use** — separate setup and exam pages, a 3-question
+7. **Iterations from real use** — separate setup and exam pages, a 3-question
    default for daily habit, random blocks, a dedicated Q14–15 mode, a visible
    "I can hear you" indicator, a 2-minute notice, more natural TTS, and feedback
    that rewrites the learner's own answer instead of inventing one.

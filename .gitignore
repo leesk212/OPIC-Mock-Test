@@ -10,3 +10,9 @@ web/ava.png
 .DS_Store
 sets/*.json
 !sets/example.json
+
+# remote access
+.access_token
+bin/
+tunnel.json
+tunnel.log

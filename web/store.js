@@ -4,7 +4,7 @@
 //   results + feedback -> localStorage, recordings -> IndexedDB,
 //   grading -> the viewer's own API key (kept only in this browser) or copy-paste.
 (() => {
-  const LOCAL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname) && location.protocol.startsWith('http');
+  const LOCAL = window.OPIC_SERVER === true || (['localhost', '127.0.0.1', '[::1]'].includes(location.hostname) && location.protocol.startsWith('http'));
   const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const NAME_RE = /^\d{4}-\d{2}-\d{2}(_[A-Za-z0-9-]{1,16})?$/;
   const ls = {

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OPIc Mock Test · 내 시험 서버</title>
+<style>
+body{margin:0;font-family:"Noto Sans KR","Apple SD Gothic Neo",system-ui,sans-serif;background:#fff;color:#222b33;padding:48px max(20px,env(safe-area-inset-left,0px))}
+.w{max-width:520px;margin:0 auto}h1{font-size:20px;margin:0 0 8px}p{line-height:1.6;color:#4a5560}
+.btn{display:inline-block;background:#f26a3d;color:#fff;font-weight:700;padding:10px 20px;text-decoration:none;border:0;font:inherit;cursor:pointer}
+input{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #d9dee3;font:inherit;margin:8px 0}
+.note{font-size:13px;color:#6b7680}
+</style></head><body><div class="w">
+<h1 id="h">내 시험 서버로 이동 중…</h1>
+<p id="msg">잠시만요.</p>
+<div id="keyBox" hidden>
+  <p>이 브라우저에 저장된 비밀 키가 없어요. 알림으로 받은 링크(<code>…/go/#k=…</code>)로 다시 열거나, 키를 붙여 넣으세요.</p>
+  <input id="key" placeholder="비밀 키" autocomplete="off"><button class="btn" id="go">이동</button>
+</div>
+<p class="note">이 페이지는 GitHub Pages에 있는 고정 주소예요. 그날 열린 터널 주소를 읽어서 넘겨줘요. 비밀 키는 주소의 # 뒤에만 있어서 GitHub에도 전송되지 않아요.</p>
+<p class="note">서버 없이 쓰려면 <a href="../web/index.html">온라인 모드</a>를 여세요.</p>
+</div>
+<script>
+(async()=>{
+  const $=id=>document.getElementById(id);
+  const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+  const fromHash=new URLSearchParams(location.hash.slice(1)).get('k');
+  if(fromHash){ ls.set('opic.k',fromHash); history.replaceState(null,'',location.pathname); }
+  let key=fromHash||ls.get('opic.k');
+  let t=null;
+  try{ t=await (await fetch('tunnel.json?ts='+Date.now(),{cache:'no-store'})).json(); }catch(e){}
+  if(!t||!t.url){ $('h').textContent='아직 열린 서버가 없어요'; $('msg').textContent='오늘 밤 예약 작업이 서버를 켜면 이 링크가 자동으로 연결돼요.'; return; }
+  const go=k=>location.replace(t.url.replace(/\/$/,'')+'/?k='+encodeURIComponent(k));
+  if(key){ $('msg').textContent='서버: '+t.url.replace('https://',''); go(key); return; }
+  $('h').textContent='비밀 키가 필요해요'; $('msg').textContent=''; $('keyBox').hidden=false;
+  $('go').onclick=()=>{ const k=$('key').value.trim(); if(!k) return; ls.set('opic.k',k); go(k); };
+})();
+</script>
+</body></html>
