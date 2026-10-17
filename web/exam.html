@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>23시 오픽 모의고사 · 시험</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head><body data-page="exam">
+<div class="wrap">
+  <div class="steps" id="steps">
+    <div class="step done"><b>Step 1</b><span>Background Survey</span></div>
+    <div class="step done"><b>Step 2</b><span>Self Assessment</span></div>
+    <div class="step" id="st3"><b>Step 3</b><span>Setup</span></div>
+    <div class="step" id="st4"><b>Step 4</b><span>Sample Question</span></div>
+    <div class="step" id="st5"><b>Step 5</b><span>Begin Test</span></div>
+  </div>
+
+  <!-- test screen -->
+  <section id="vTest">
+    <div class="bar" style="margin-bottom:10px">
+      <span class="qof" id="qof">Question 1 of 15</span>
+      <span class="sub" id="clock">남은 시간 40:00</span>
+    </div>
+    <div class="stage" id="stage">
+      <div>
+        <div class="ava" id="ava">
+          <img src="ava.png" alt="면접관" class="avaimg" onerror="this.onerror=null;this.src='ava.svg'"><span id="mouth" hidden></span>
+          <span class="rec">● Recording</span>
+        </div>
+        <div class="playrow">
+          <button class="playbtn" id="btnPlay" aria-label="질문 재생"><svg viewBox="0 0 10 10"><path d="M2 1 L9 5 L2 9 Z" fill="#fff"/></svg></button>
+          <div class="playlbl"><i id="playFill"></i><span id="playTxt">Click 'PLAY' button to Listen</span></div>
+        </div>
+        <div class="vstat" id="vstat"><span class="dot"></span><span id="vtxt">질문을 들으면 녹음이 시작돼요</span><div class="lvl"><div class="track"><i id="vfill"></i></div></div></div>
+      </div>
+      <div class="meter" id="meter" title="녹음 볼륨"><i id="meterFill"></i><b></b></div>
+      <div class="right">
+        <div><div class="lbl">문항 진행</div><div class="grid" id="grid"></div></div>
+        <div class="info" id="info">Play 아이콘(▶)을 눌러 질문을 청취하십시오.<br><strong>중요!</strong> 질문이 끝나고 5초 이내에 버튼을 누르면 질문을 다시 들을 수 있으며, 다시 듣기는 1회만 가능합니다.</div>
+        <div class="mic" id="ansBox">
+          <span class="lbl" id="ansLbl">답변</span>
+          <div class="live" id="live" hidden></div>
+          <textarea id="memo" hidden placeholder="녹음이 안 되는 화면이에요. 말하면서 키보드 음성 입력으로 받아 적거나, 핵심만 메모하세요."></textarea>
+        </div>
+        <div><button class="link" id="btnText">질문 문장 보기 (실제 시험엔 없음)</button><div class="qtext" id="qtext" hidden></div></div>
+      </div>
+    </div>
+    <div class="foot" style="margin-top:14px">
+      <a class="link" href="index.html" id="btnQuit">시험 그만두기</a>
+      <span class="sub" id="ansClock">답변 0:00</span>
+      <span class="over" id="over" hidden>답변 시간이 2분을 넘었습니다. 마무리하고 Next를 눌러 다음 문항으로 넘어가세요.</span>
+      <button class="next" id="btnNext" disabled>Next &gt;</button>
+    </div>
+  </section>
+
+  <!-- difficulty -->
+  <section class="card" id="vDiff" hidden>
+    <h2>난이도 재조정</h2>
+    <p style="margin:0">지금까지 진행한 질문을 바탕으로 이후 질문의 난이도를 선택하세요.</p>
+    <div class="diff">
+      <button data-d="easier">쉬운 질문</button>
+      <button data-d="same">비슷한 질문</button>
+      <button data-d="harder">어려운 질문</button>
+    </div>
+  </section>
+
+  <!-- end -->
+  <section class="card" id="vEnd" hidden>
+    <h2>시험 종료</h2>
+    <p id="endSum" style="margin:0;font-weight:700"></p>
+    <div class="tablebox"><table><thead><tr><th>#</th><th>유형</th><th>답변</th><th>녹음 · 받아쓰기</th></tr></thead><tbody id="rows"></tbody></table></div>
+    <div id="fbWrap" hidden>
+      <div class="bar"><h2 style="margin:0">AL 피드백</h2><button class="btn" id="btnRegrade">다시 채점</button></div>
+      <p class="note" id="fbStatus"></p>
+      <div id="fbBox" class="fb"></div>
+    </div>
+    <details><summary class="lbl">코치 채점 요청 문구 (프로젝트 채팅에 붙이기)</summary>
+    <textarea id="report" readonly></textarea></details>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><a class="btn" href="index.html">설정으로 돌아가기</a><button class="btn blue" id="btnCopy">복사</button><span class="note" id="copyNote"></span><span class="note" id="saveNote"></span></div>
+  </section>
+</div>
+<script src="feedback.js"></script>
+<script src="app.js"></script>
+</body></html>

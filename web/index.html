@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>23시 오픽 모의고사 · 설정</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head><body data-page="setup">
+<div class="wrap">
+  <div class="steps" id="steps">
+    <div class="step done"><b>Step 1</b><span>Background Survey</span></div>
+    <div class="step done"><b>Step 2</b><span>Self Assessment</span></div>
+    <div class="step" id="st3"><b>Step 3</b><span>Setup</span></div>
+    <div class="step" id="st4"><b>Step 4</b><span>Sample Question</span></div>
+    <div class="step" id="st5"><b>Step 5</b><span>Begin Test</span></div>
+  </div>
+
+  <!-- setup -->
+  <section class="card" id="vSetup">
+    <h2>Setup · 오늘의 모의고사</h2>
+    <dl class="kv">
+      <dt>날짜</dt><dd id="kDate">—</dd>
+      <dt>세트</dt><dd id="kTheme">불러오는 중…</dd>
+      <dt>서베이</dt><dd>일 경험 없음 · 학생 아님 · 개인주택 홀로 거주 · 선택 12개</dd>
+      <dt>Self Assessment</dt><dd>6-6</dd>
+      <dt>오늘 포인트</dt><dd id="kNote">—</dd>
+    </dl>
+    <div class="mic" id="countBox">
+      <b>문항 수</b>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="countSel" class="sel"><option value="3" selected>3문항 (약 8분)</option><option value="5">5문항 · 롤플레이+어드밴스 (약 13분)</option><option value="15">15문항 전체 (40분)</option></select>
+        <select id="partSel" class="sel"></select>
+      </div>
+      <span class="note" id="countNote">기본은 3문항 · 랜덤이에요. 누를 때마다 콤보·돌발·롤플레이·14·15 어드밴스 중 한 구간이 무작위로 나와요.</span>
+    </div>
+    <div class="mic" id="voiceBox">
+      <b>질문 음성</b>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="voiceSel" style="font:inherit;padding:6px 8px;border:1px solid var(--line);background:#fff;color:var(--ink);max-width:100%;min-width:0"></select>
+        <label class="note" for="rateSel">속도</label>
+        <select id="rateSel" style="font:inherit;padding:6px 8px;border:1px solid var(--line);background:#fff;color:var(--ink)"><option value="0.92">조금 느리게</option><option value="1" selected>보통</option><option value="1.06">조금 빠르게</option></select>
+        <button class="btn" id="btnPreview">들어보기</button>
+      </div>
+      <span class="note" id="voiceNote">이름에 Natural · Neural · Google · Premium이 붙은 음성이 가장 자연스러워요.</span>
+    </div>
+    <div class="mic" id="micBox">
+      <b>마이크 확인</b>
+      <span id="micMsg">녹음이 되는지 확인할게요.</span>
+      <div class="lvl" id="setupLvl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><div class="track"><i id="setupFill"></i></div><span class="note" id="setupHear" style="min-width:6.5em">대기</span></div>
+      <div class="row" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn blue" id="btnMic">마이크 테스트</button>
+      </div>
+    </div>
+    <div class="foot">
+      <span class="note" id="setupNote"></span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn" href="feedback.html">기록·피드백</a>
+        <button class="btn" id="btnSample" disabled>Sample Question</button>
+        <button class="btn" id="btnFull" disabled>실전 15문항 (40분)</button>
+        <button class="next" id="btnBegin" disabled>Begin Test &gt;</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+<script src="app.js"></script>
+</body></html>

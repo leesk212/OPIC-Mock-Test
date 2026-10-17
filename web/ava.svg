@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 260" role="img" aria-label="Interviewer">
+<rect width="260" height="260" fill="#c9cbb0"/><rect x="170" y="20" width="90" height="130" fill="#3f5a4c"/>
+<path d="M40 260 C44 200 80 182 130 182 C180 182 216 200 220 260 Z" fill="#23262c"/>
+<path d="M110 182 L130 226 L150 182 Z" fill="#f4f1ec"/><rect x="116" y="152" width="28" height="34" fill="#e7bfa0"/>
+<path d="M78 104 C76 52 104 34 130 34 C162 34 186 54 184 106 C188 154 180 190 168 200 L150 138 L112 138 L92 200 C80 190 74 154 78 104 Z" fill="#7a4a2e"/>
+<ellipse cx="130" cy="112" rx="38" ry="48" fill="#f0cdb0"/>
+<path d="M90 104 C96 64 118 56 136 56 C160 56 172 76 172 96 C152 82 122 76 90 104 Z" fill="#7a4a2e"/>
+<ellipse cx="116" cy="112" rx="4" ry="4.5" fill="#3a2a22"/><ellipse cx="144" cy="112" rx="4" ry="4.5" fill="#3a2a22"/>
+<path d="M108 100 Q116 96 123 100 M137 100 Q144 96 152 100" stroke="#5a3c2a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+<path d="M130 118 L127 132 L133 132" stroke="#c99a7c" stroke-width="2" fill="none" stroke-linecap="round"/>
+<path d="M120 144 Q130 150 140 144" stroke="#b5524a" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>

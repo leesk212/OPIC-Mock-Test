@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>23시 오픽 모의고사 · 기록·피드백</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head><body data-page="feedback">
+<div class="wrap">
+  <div class="bar"><h1 style="margin:0;font-size:20px">기록 · 피드백</h1><a class="btn" href="index.html">설정으로</a></div>
+  <section class="card">
+    <div class="tablebox"><table>
+      <thead><tr><th>날짜</th><th>구간</th><th>시간</th><th>등급</th><th>피드백</th></tr></thead>
+      <tbody id="hist"><tr><td colspan="5" class="note">불러오는 중…</td></tr></tbody>
+    </table></div>
+    <p class="note" id="mode"></p>
+  </section>
+  <section class="card" id="detail" hidden>
+    <div class="bar"><h2 style="margin:0" id="dTitle"></h2><button class="btn" id="btnGrade">채점 요청</button></div>
+    <p class="note" id="dStatus"></p>
+    <div id="dBox" class="fb"></div>
+  </section>
+</div>
+<script src="feedback.js"></script>
+<script>
+(async()=>{
+  const $=id=>document.getElementById(id);
+  const fmt=s=>s==null?'—':Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  const STATE={ready:'완료',queued:'야간 채점 대기',none:'없음',error:'오류'};
+  try{ const h=await (await fetch('/api/health')).json(); $('mode').textContent= h.instant_feedback ? `즉시 피드백 켜짐 (${h.model})` : '즉시 피드백 꺼짐 — 채점은 매일 00:15 예약 작업이 해요. config.json에 API 키를 넣으면 시험 직후 바로 나와요.'; }catch(e){}
+  let items=[]; try{ items=(await (await fetch('/api/history')).json()).items||[]; }catch(e){}
+  const tb=$('hist'); tb.innerHTML='';
+  if(!items.length){ tb.innerHTML='<tr><td colspan="5" class="note">아직 저장된 시험이 없어요. 설정 페이지에서 첫 시험을 시작하세요.</td></tr>'; return; }
+  items.forEach(it=>{
+    const tr=document.createElement('tr'); tr.className='clickable'; tr.tabIndex=0;
+    [it.date, it.part==='full'?'15문항 전체':(it.part==='ADV'?'14·15 어드밴스':it.part)+` · ${it.count}문항`, fmt(it.totalSec), it.grade||'—', STATE[it.feedback]||it.feedback].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td)});
+    const open=()=>show(it); tr.onclick=open; tr.onkeydown=e=>{if(e.key==='Enter')open()};
+    tb.appendChild(tr);
+  });
+  async function show(it){
+    $('detail').hidden=false; $('dTitle').textContent=`${it.date} · ${it.theme||''}`; $('dBox').innerHTML=''; $('dStatus').textContent='';
+    const result=await (await fetch('/api/result?name='+it.name)).json().catch(()=>null);
+    const st=await (await fetch('/api/feedback?name='+it.name)).json().catch(()=>({status:'error'}));
+    if(st.status==='ready') OPIcFeedback.render($('dBox'),st.feedback,result);
+    else $('dStatus').textContent= st.status==='queued' ? '오늘 밤 00:15에 채점돼요.' : '아직 피드백이 없어요. 채점 요청을 누르세요.';
+    $('btnGrade').textContent= st.status==='ready' ? '다시 채점' : '채점 요청';
+    $('btnGrade').onclick=()=>OPIcFeedback.request($('dBox'),it.name,result,{force:st.status==='ready',statusEl:$('dStatus')});
+    $('detail').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+  if(items[0]) show(items[0]);
+})();
+</script>
+</body></html>

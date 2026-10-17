@@ -1,0 +1,83 @@
+{
+  "date": "example",
+  "theme": "걷기 · 미용실(돌발) · 카페 · 약속 롤플레이 · 기술 어드밴스",
+  "note": "오늘 포인트: 모든 답변 끝에 미래 1문장, 과거 경험엔 다른 사람 1명 등장.",
+  "source": "coach",
+  "questions": [
+    {
+      "type": "intro",
+      "topic": "자기소개",
+      "text": "Let's start the interview now. Tell me a little bit about yourself."
+    },
+    {
+      "type": "d",
+      "topic": "걷기",
+      "text": "You indicated in the survey that you enjoy walking. Where do you usually walk? Describe the place for me in as much detail as possible."
+    },
+    {
+      "type": "h",
+      "topic": "걷기",
+      "text": "Tell me about your walking routine. When do you usually walk, how long do you walk, and what do you do while you are walking?"
+    },
+    {
+      "type": "p",
+      "topic": "걷기",
+      "text": "Tell me about a time when something unexpected happened while you were taking a walk. When was it, who were you with, and what happened? Give me all the details."
+    },
+    {
+      "type": "d",
+      "topic": "미용실",
+      "text": "I'd like to know about the hair salon you usually go to. Where is it, what does it look like inside, and why do you go there?"
+    },
+    {
+      "type": "h",
+      "topic": "미용실",
+      "text": "What do you usually do when you go to the hair salon? Tell me about a typical visit, from the moment you walk in until you leave."
+    },
+    {
+      "type": "p",
+      "topic": "미용실",
+      "text": "Tell me about a memorable experience you had at a hair salon. Maybe the stylist did something you didn't expect or didn't like. What happened, and how did you handle it?"
+    },
+    {
+      "type": "d",
+      "topic": "카페",
+      "text": "You said you go to coffee shops. Tell me about a coffee shop you like to visit. Where is it, and what does it look like?"
+    },
+    {
+      "type": "c",
+      "topic": "카페",
+      "text": "How have coffee shops changed compared to when you first started going to them? What is different about them now?"
+    },
+    {
+      "type": "p",
+      "topic": "카페",
+      "text": "Tell me about a memorable experience you had at a coffee shop. What happened, who were you with, and why do you still remember it?"
+    },
+    {
+      "type": "rp1",
+      "topic": "약속",
+      "text": "Your friend invited you to a dinner party this weekend. Call your friend and ask three or four questions to find out more about the party."
+    },
+    {
+      "type": "rp2",
+      "topic": "약속",
+      "text": "I'm sorry, but there is a problem that I need you to resolve. Something came up, and you can't go to the party. Call your friend, explain the situation, and offer two or three alternatives."
+    },
+    {
+      "type": "rp3",
+      "topic": "약속",
+      "text": "That's the end of the situation. Have you ever had to cancel plans with someone because something unexpected came up? Tell me what happened and how you handled it."
+    },
+    {
+      "type": "a1",
+      "topic": "기술",
+      "text": "Technology has changed the way people spend their free time. How do people's leisure activities today differ from those of ten years ago? Give me specific examples."
+    },
+    {
+      "type": "a2",
+      "topic": "기술",
+      "text": "Some people worry that people spend too much time on their phones and devices during their free time. What are people saying about this issue, and what is your own opinion?"
+    }
+  ]
+}

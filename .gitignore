@@ -1,0 +1,12 @@
+# personal data — never committed
+results/
+recordings/
+feedback/
+config.json
+server.log
+_to_delete/
+# the official exam avatar is not redistributed; drop your own image here
+web/ava.png
+.DS_Store
+sets/*.json
+!sets/example.json
