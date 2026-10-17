@@ -152,7 +152,7 @@
     const sel=$('voiceSel'); sel.innerHTML='';
     voices.forEach((v,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=v.name+(i===0?'  (추천)':'');sel.appendChild(o)});
     const saved=lsGet('opic.voice'); let i=voices.findIndex(v=>v.name===saved); if(i<0)i=0; sel.value=String(i); voice=voices[i]||null;
-    if(!voices.length) $('voiceNote').textContent='영어 음성이 없어요. Edge나 Chrome에서 열어 보세요.';
+    $('voiceNote').textContent= voices.length ? '이름에 Natural · Neural · Google · Premium이 붙은 음성이 가장 자연스러워요.' : '영어 음성을 불러오는 중이에요. 계속 비어 있으면 Chrome이나 Edge에서 열어 보세요.';
   }
   if('speechSynthesis' in window){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
   { const r=lsGet('opic.rate'); if(r){ rate=Number(r)||1; $('rateSel').value=r; } }
