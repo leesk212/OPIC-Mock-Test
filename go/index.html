@@ -14,7 +14,7 @@ input{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #d9dee3
   <p>이 브라우저에 저장된 비밀 키가 없어요. 알림으로 받은 링크(<code>…/go/#k=…</code>)로 다시 열거나, 키를 붙여 넣으세요.</p>
   <input id="key" placeholder="비밀 키" autocomplete="off"><button class="btn" id="go">이동</button>
 </div>
-<p class="note">이 페이지는 GitHub Pages에 있는 고정 주소예요. 그날 열린 터널 주소를 읽어서 넘겨줘요. 비밀 키는 주소의 # 뒤에만 있어서 GitHub에도 전송되지 않아요.</p>
+<p class="note">이 페이지는 GitHub Pages에 있는 고정 주소예요. 그날 열린 서버 주소는 비밀 키로 암호화돼 저장돼 있고, 이 브라우저 안에서만 풀려요. 키는 주소의 # 뒤에만 있어서 어디로도 전송되지 않아요.</p>
 <p class="note">서버 없이 쓰려면 <a href="../web/index.html">온라인 모드</a>를 여세요.</p>
 </div>
 <script>
@@ -26,9 +26,21 @@ input{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #d9dee3
   let key=fromHash||ls.get('opic.k');
   let t=null;
   try{ t=await (await fetch('tunnel.json?ts='+Date.now(),{cache:'no-store'})).json(); }catch(e){}
-  if(!t||!t.url){ $('h').textContent='아직 열린 서버가 없어요'; $('msg').textContent='오늘 밤 예약 작업이 서버를 켜면 이 링크가 자동으로 연결돼요.'; return; }
-  const go=k=>location.replace(t.url.replace(/\/$/,'')+'/?k='+encodeURIComponent(k));
-  if(key){ $('msg').textContent='서버: '+t.url.replace('https://',''); go(key); return; }
+  if(!t||!t.c){ $('h').textContent='아직 열린 서버가 없어요'; $('msg').textContent='오늘 밤 예약 작업이 서버를 켜면 이 링크가 자동으로 연결돼요.'; return; }
+  // The address is sealed with the access key (see scripts/seal_tunnel.py); only the key holder can open it.
+  const b=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0)), enc=new TextEncoder();
+  async function open(k){
+    const raw=new Uint8Array(await crypto.subtle.digest('SHA-256',enc.encode('opic-go:'+k)));
+    const hk=await crypto.subtle.importKey('raw',raw,{name:'HMAC',hash:'SHA-256'},false,['sign']);
+    const mac=async parts=>new Uint8Array(await crypto.subtle.sign('HMAC',hk,new Uint8Array(parts.flatMap(p=>[...p]))));
+    const n=b(t.n), c=b(t.c), tag=b(t.t);
+    const want=await mac([enc.encode('tag'),n,c]);
+    if(want.length!==tag.length||want.some((v,i)=>v!==tag[i])) return null;
+    let ks=[]; for(let i=0;ks.length<c.length;i++){ const ctr=new Uint8Array([i>>>24&255,i>>>16&255,i>>>8&255,i&255]); ks.push(...await mac([enc.encode('ks'),n,ctr])); }
+    return new TextDecoder().decode(c.map((v,i)=>v^ks[i]));
+  }
+  const go=async k=>{ const url=await open(k); if(!url){ $('h').textContent='키가 맞지 않아요'; $('msg').textContent='알림으로 받은 최신 링크로 다시 열어 주세요.'; $('keyBox').hidden=false; return; } location.replace(url.replace(/\/$/,'')+'/?k='+encodeURIComponent(k)); };
+  if(key){ $('msg').textContent='서버로 연결하는 중…'; go(key); return; }
   $('h').textContent='비밀 키가 필요해요'; $('msg').textContent=''; $('keyBox').hidden=false;
   $('go').onclick=()=>{ const k=$('key').value.trim(); if(!k) return; ls.set('opic.k',k); go(k); };
 })();

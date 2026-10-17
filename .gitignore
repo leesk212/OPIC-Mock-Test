@@ -14,5 +14,5 @@ sets/*.json
 # remote access
 .access_token
 bin/
-tunnel.json
-tunnel.log
+/tunnel.json
+/tunnel.log

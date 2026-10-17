@@ -13,7 +13,6 @@
 |---|---|
 | **Landing page** | https://leesk212.github.io/OPIC-Mock-Test/ |
 | **Start a test right away** | https://leesk212.github.io/OPIC-Mock-Test/web/index.html |
-| **Your own server, from anywhere** | `https://leesk212.github.io/OPIC-Mock-Test/go/#k=<your key>` (see [Remote access](#remote-access)) |
 
 Open it in **Chrome**, allow the microphone, press **Begin Test**. That's it.
 Recordings, transcripts and feedback stay in your browser.
@@ -177,7 +176,8 @@ certificates, no accounts, no build step — plain HTML/CSS/JS.
 | Path | Role |
 |---|---|
 | `index.html` | Landing page of the GitHub Pages site. |
-| `go/index.html`, `go/tunnel.json` | Fixed link that forwards to the current tunnel address of your own server. |
+| `go/index.html`, `go/tunnel.json` | Fixed link that decrypts the current (encrypted) server address with your key and forwards you. |
+| `scripts/seal_tunnel.py` | Encrypts the tunnel address with the access key for `go/tunnel.json`. |
 | `web/store.js` | Online mode: answers the same `/api` calls in the browser (localStorage, IndexedDB, browser-side grading). |
 | `server.py` | Serves `web/`, stores recordings and results, returns tonight's set, grades with the API when a key is configured, queues grading otherwise. Python 3 standard library only. |
 | `web/index.html` | Setup page (mode, voice, mic test). |
@@ -244,22 +244,21 @@ Run the local server at home and take the test from any device — phone
 included — through one link that never changes.
 
 1. `scripts/start.command` (double-click on macOS) starts `server.py`, downloads
-   `cloudflared` into `bin/` the first time, and opens a free **Cloudflare quick
-   tunnel** (no account, no login). The tunnel's random `https://…trycloudflare.com`
-   address is written to `tunnel.json`.
-2. That address is copied into `go/tunnel.json` in this repository (the
-   author's nightly task does it automatically).
-3. You keep one bookmark: `https://leesk212.github.io/OPIC-Mock-Test/go/#k=<key>`.
-   The `/go/` page reads `go/tunnel.json` and forwards you to the tunnel with the
-   key. The key sits after `#`, so it is never sent to GitHub; the page remembers
-   it in your browser for next time.
+   `cloudflared` into `bin/` the first time, and opens a free Cloudflare quick
+   tunnel (no account, no login). Its address is kept locally in `tunnel.json`
+   (git-ignored).
+2. `scripts/seal_tunnel.py --write` encrypts that address with your access key
+   and writes the result to `go/tunnel.json`, which is published with the site.
+   The repository never contains the address in readable form.
+3. You keep one bookmark: the site's `/go/` page with your key after `#`.
+   The page decrypts the address in the browser and forwards you to your server.
+   The key is never sent anywhere, and the page remembers it for next time.
 
 **Access control.** `server.py` creates a random key in `.access_token` on first
-run (git-ignored). Requests that arrive through a tunnel (they carry
-`Cf-Connecting-Ip` / `X-Forwarded-*` headers) must present `?k=<key>` once and
-then keep an `HttpOnly; Secure` cookie; everything else gets `401`. Plain
-`localhost` requests are always allowed. The tunnel address in `go/tunnel.json`
-is public, but useless without the key.
+run (git-ignored). Requests that arrive through a tunnel must present the key
+once and then keep an `HttpOnly; Secure` cookie; everything else gets `401`.
+Plain `localhost` requests are always allowed, and `start.command` refuses to
+open a tunnel for a server version without this check.
 
 Quick tunnels change address whenever `cloudflared` restarts and come with no
 uptime guarantee — fine for a personal practice server, not for production.
@@ -327,7 +326,7 @@ This project came out of a single long conversation with Claude, iterating from
    at — writing the nightly set, grading against the AL rubric, and keeping the
    study log — through scheduled tasks.
 5. **Remote access** — a Cloudflare quick tunnel, a fixed `/go/` link on
-   GitHub Pages that follows the tunnel, and key-based access control.
+   GitHub Pages that follows it with the address encrypted, and key-based access control.
 6. **Hosting for everyone** — the same pages published on GitHub Pages, with
    a browser storage layer and grading that works with any chat assistant, an
    API key or a local model.
