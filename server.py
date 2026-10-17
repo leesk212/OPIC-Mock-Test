@@ -82,6 +82,12 @@ def find_claude():
               Path("/usr/local/bin/claude"), home / ".npm-global/bin/claude"):
         if c.exists() and os.access(c, os.X_OK):
             return str(c)
+    # The copy bundled with the Claude desktop app (macOS); newest version first.
+    bundled = sorted((home / "Library/Application Support/Claude/claude-code").glob("*/*/claude.app/Contents/MacOS/claude"),
+                     key=lambda p: [int(x) if x.isdigit() else 0 for x in p.parts[-6].split(".")], reverse=True)
+    for c in bundled:
+        if os.access(c, os.X_OK):
+            return str(c)
     return ""
 
 
@@ -206,11 +212,18 @@ def _grade_job(name, cfg):
         sys.stderr.write(f"graded {name} with {cfg['provider']}\n")
     except urllib.error.HTTPError as e:
         err.write_text(f"API {e.code}: " + e.read().decode("utf-8", "replace")[:300], encoding="utf-8")
-    except Exception as e:  # network, timeout, CLI failure, unparsable reply
+        _requeue(name)
+    except Exception as e:  # network, timeout, CLI failure (e.g. not logged in), unparsable reply
         err.write_text(str(e)[:300] or type(e).__name__, encoding="utf-8")
+        _requeue(name)
     finally:
         with GRADING_LOCK:
             GRADING.discard(name)
+
+
+def _requeue(name):
+    """A failed automatic grade falls back to the queue, so the nightly task still picks it up."""
+    (ROOT / "feedback" / f"{name}.pending").write_text(datetime.now(KST).isoformat(timespec="seconds"), encoding="utf-8")
 
 
 def start_grading(name, cfg):

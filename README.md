@@ -30,7 +30,7 @@ There are two ways to run it. Both give you the same exam screen.
 | Setup | none — open the link | `git clone` + `python3 server.py` |
 | Recordings & results | your browser (localStorage / IndexedDB) | files on disk (`recordings/`, `results/`) |
 | Question set | built-in bank, new every day | built-in bank, or a set you (or a scheduled task) drop into `sets/` |
-| Feedback | copy-paste, or your own API key saved in the browser | copy-paste, API key or local model in `config.json` |
+| Feedback | copy-paste, or your own API key saved in the browser | automatic with a signed-in Claude Code CLI, or copy-paste, API key or local model in `config.json` |
 | Nightly automation | — | optional (set generation, grading, GitHub study log) |
 | Use from phone / outside | yes | yes, through a tunnel and the `/go/` fixed link |
 
@@ -56,6 +56,7 @@ each test it picks the first option that is available:
 |---|---|---|---|
 | **1. Copy-paste** (default) | Press **채점 프롬프트 복사**, paste into any chat assistant (Claude, ChatGPT, Gemini…), paste its JSON reply back, press **피드백 저장** | free with any chat account | nothing to set |
 | **2. Your API key** | Grading runs automatically right after the test | API usage | Online: setup page → *자동 채점*. Local: `config.json` |
+| **2b. Claude Code CLI** (local) | If `claude` is installed and signed in, the server grades with `claude -p` right after the test — no API key. On macOS the copy bundled with the Claude desktop app is found too; sign it in once with `scripts/claude-login.command` | Claude plan | nothing — detected automatically |
 | **3. Local model** | Same as 2, fully offline (Ollama, LM Studio, vLLM…) | free | Local: `config.json` with `"provider": "openai", "base_url": "http://localhost:11434/v1"` |
 | **4. Scheduled Claude tasks** | The author's setup: a nightly Claude task grades queued results and pushes the study log | Claude plan | see [`prompts/nightly-grade.md`](prompts/nightly-grade.md) |
 
