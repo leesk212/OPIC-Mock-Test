@@ -16,3 +16,4 @@ sets/*.json
 bin/
 /tunnel.json
 /tunnel.log
+__pycache__/
