@@ -19,13 +19,14 @@
     <div id="dBox" class="fb"></div>
   </section>
 </div>
+<script src="store.js"></script>
 <script src="feedback.js"></script>
 <script>
 (async()=>{
   const $=id=>document.getElementById(id);
   const fmt=s=>s==null?'—':Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
   const STATE={ready:'완료',queued:'야간 채점 대기',none:'없음',error:'오류'};
-  try{ const h=await (await fetch('/api/health')).json(); $('mode').textContent= h.instant_feedback ? `즉시 피드백 켜짐 (${h.model})` : '즉시 피드백 꺼짐 — 채점은 매일 00:15 예약 작업이 해요. config.json에 API 키를 넣으면 시험 직후 바로 나와요.'; }catch(e){}
+  try{ const h=await (await fetch('/api/health')).json(); $('mode').textContent= h.instant_feedback ? `자동 채점 켜짐 · ${h.provider} · ${h.model}` : '자동 채점 꺼짐 — 시험을 고르고 "채점 요청"을 누르면 아무 AI 채팅으로 채점하는 방법이 나와요. (config.json에 API 키나 로컬 모델을 넣으면 자동)'; }catch(e){}
   let items=[]; try{ items=(await (await fetch('/api/history')).json()).items||[]; }catch(e){}
   const tb=$('hist'); tb.innerHTML='';
   if(!items.length){ tb.innerHTML='<tr><td colspan="5" class="note">아직 저장된 시험이 없어요. 설정 페이지에서 첫 시험을 시작하세요.</td></tr>'; return; }
@@ -40,7 +41,7 @@
     const result=await (await fetch('/api/result?name='+it.name)).json().catch(()=>null);
     const st=await (await fetch('/api/feedback?name='+it.name)).json().catch(()=>({status:'error'}));
     if(st.status==='ready') OPIcFeedback.render($('dBox'),st.feedback,result);
-    else $('dStatus').textContent= st.status==='queued' ? '오늘 밤 00:15에 채점돼요.' : '아직 피드백이 없어요. 채점 요청을 누르세요.';
+    else $('dStatus').textContent= st.status==='queued' ? '채점 대기 중이에요. 채점 요청을 누르면 바로 채점하는 방법이 나와요.' : '아직 피드백이 없어요. 채점 요청을 누르세요.';
     $('btnGrade').textContent= st.status==='ready' ? '다시 채점' : '채점 요청';
     $('btnGrade').onclick=()=>OPIcFeedback.request($('dBox'),it.name,result,{force:st.status==='ready',statusEl:$('dStatus')});
     $('detail').scrollIntoView({behavior:'smooth',block:'start'});

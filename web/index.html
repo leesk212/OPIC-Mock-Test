@@ -23,6 +23,17 @@
       <dt>Self Assessment</dt><dd>6-6</dd>
       <dt>오늘 포인트</dt><dd id="kNote">—</dd>
     </dl>
+    <div class="mic" id="hostedBox" hidden>
+      <b>온라인 모드 · 자동 채점 (선택)</b>
+      <span class="note">설치 없이 브라우저에서 돌아가는 모드예요. 녹음·기록·피드백은 이 브라우저에만 저장돼요. 키를 비워 두면 시험 후 "채점 프롬프트 복사 → 아무 AI 채팅에 붙여 넣기" 방식으로 채점해요.</span>
+      <div class="fb-row">
+        <select id="gProv" class="sel"><option value="">자동 채점 안 함 (복사·붙여넣기)</option><option value="anthropic">Anthropic (Claude)</option><option value="openai">OpenAI 또는 호환 API</option></select>
+        <input id="gModel" class="sel" placeholder="모델" style="width:180px">
+      </div>
+      <div class="fb-row" id="gKeyRow" hidden><input id="gKey" class="sel" type="password" placeholder="API 키 (이 브라우저에만 저장)" style="flex:1;min-width:0" autocomplete="off"></div>
+      <div class="fb-row" id="gBaseRow" hidden><input id="gBase" class="sel" placeholder="https://api.openai.com/v1 (비우면 기본값)" style="flex:1;min-width:0"></div>
+      <div class="fb-row"><button class="btn" id="gSave">저장</button><span class="note" id="gNote"></span></div>
+    </div>
     <div class="mic" id="countBox">
       <b>문항 수</b>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -61,5 +72,6 @@
   </section>
 
 </div>
+<script src="store.js"></script>
 <script src="app.js"></script>
 </body></html>

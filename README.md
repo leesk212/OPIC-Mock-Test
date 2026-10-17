@@ -1,21 +1,71 @@
 # OPIc Mock Test
 
-> **About** — A self-hosted OPIc speaking mock test that looks and runs like the
-> real exam screen: a new AI-generated question set every night, automatic
-> recording with a live transcript, feedback aimed at the Advanced Low (AL)
-> level, and a daily study log that fills your GitHub contribution graph.
+> **About** — An OPIc speaking mock test that looks and runs like the real exam
+> screen: automatic recording with a live transcript, a question set built in the
+> real exam order, feedback aimed at the Advanced Low (AL) level, and an optional
+> nightly routine that fills your GitHub contribution graph.
+
+## ▶ Try it now — no install
+
+**https://leesk212.github.io/OPIC-Mock-Test/**
+
+Open it in **Chrome**, allow the microphone, press **Begin Test**. That's it.
+Recordings, transcripts and feedback stay in your browser.
 
 ![Exam screen while recording](docs/screens/3-exam-recording.png)
 
-A local, self-hosted OPIc speaking practice environment that behaves like the real
-exam screen — avatar, play button, five-second replay, automatic recording, a
-volume meter, the question grid, the orange **Next** button — plus a fresh
-question set every night, AI feedback aimed at the **Advanced Low (AL)** level,
-and a study log that fills your GitHub contribution graph.
+---
+
+## Quick start
+
+There are two ways to run it. Both give you the same exam screen.
+
+| | **Online** (GitHub Pages) | **Local** (`server.py` on your computer) |
+|---|---|---|
+| Setup | none — open the link | `git clone` + `python3 server.py` |
+| Recordings & results | your browser (localStorage / IndexedDB) | files on disk (`recordings/`, `results/`) |
+| Question set | built-in bank, new every day | built-in bank, or a set you (or a scheduled task) drop into `sets/` |
+| Feedback | copy-paste, or your own API key saved in the browser | copy-paste, API key or local model in `config.json` |
+| Nightly automation | — | optional (set generation, grading, GitHub study log) |
+
+### Local in three commands
+
+```bash
+git clone https://github.com/leesk212/OPIC-Mock-Test.git
+cd OPIC-Mock-Test
+python3 server.py        # open http://localhost:8765 in Chrome
+```
+
+Python 3.9+ only — no packages to install. On macOS you can double-click
+`scripts/start.command` instead.
+
+---
+
+## Feedback options — you do not need an LLM subscription
+
+Grading needs a language model, but the app does not lock you into one. After
+each test it picks the first option that is available:
+
+| Option | What you do | Cost | Where to set it |
+|---|---|---|---|
+| **1. Copy-paste** (default) | Press **채점 프롬프트 복사**, paste into any chat assistant (Claude, ChatGPT, Gemini…), paste its JSON reply back, press **피드백 저장** | free with any chat account | nothing to set |
+| **2. Your API key** | Grading runs automatically right after the test | API usage | Online: setup page → *자동 채점*. Local: `config.json` |
+| **3. Local model** | Same as 2, fully offline (Ollama, LM Studio, vLLM…) | free | Local: `config.json` with `"provider": "openai", "base_url": "http://localhost:11434/v1"` |
+| **4. Scheduled Claude tasks** | The author's setup: a nightly Claude task grades queued results and pushes the study log | Claude plan | see [`prompts/nightly-grade.md`](prompts/nightly-grade.md) |
+
+Every option uses the same rubric, [`prompts/feedback.md`](prompts/feedback.md),
+and the same JSON format, so the feedback page looks identical whichever you use.
+An API key is only ever sent to the provider you chose: in online mode it lives
+in your browser's storage, in local mode in `config.json` (git-ignored).
+
+![Copy-paste grading](docs/screens/6-copy-paste-grading.png)
+
+![Online mode grading settings](docs/screens/7-online-mode-settings.png)
+
+---
 
 It was built for one learner stuck at IH who wanted daily, realistic practice
-instead of reading scripts. Everything runs on your own computer; your voice
-recordings and transcripts never leave it.
+instead of reading scripts.
 
 **Contents** — [Screens](#screens) · [A day with it](#a-day-with-it) · [How it works](#how-it-works) · [Run it yourself](#run-it-yourself) · [How it was built](#how-it-was-built)
 
@@ -65,6 +115,9 @@ the end of the exam (instant mode) and on the history page.
 
 ## A day with it
 
+The author's routine with the local server and two scheduled Claude tasks.
+Online users simply open the link whenever they want to practise.
+
 ![Daily routine](docs/daily-routine.png)
 
 ## What a session looks like
@@ -104,17 +157,19 @@ the end of the exam (instant mode) and on the history page.
 
 ![Architecture](docs/architecture.png)
 
-### Why a local server
+### Why there is no backend
 
-Browsers only give a page the microphone on a secure origin. `http://localhost`
-counts as one, so a tiny standard-library Python server is enough: no HTTPS
-certificates, no cloud hosting, no account system, and your recordings stay on
-disk. The pages are plain HTML/CSS/JS with no build step.
+Browsers only give a page the microphone on a secure origin. GitHub Pages is
+HTTPS, and `http://localhost` also counts as secure. So the app needs no
+backend of its own: online it is static files plus browser storage, locally it
+is a tiny standard-library Python server that keeps recordings on disk. No
+certificates, no accounts, no build step — plain HTML/CSS/JS.
 
 ### The pieces
 
 | Path | Role |
 |---|---|
+| `web/store.js` | Online mode: answers the same `/api` calls in the browser (localStorage, IndexedDB, browser-side grading). |
 | `server.py` | Serves `web/`, stores recordings and results, returns tonight's set, grades with the API when a key is configured, queues grading otherwise. Python 3 standard library only. |
 | `web/index.html` | Setup page (mode, voice, mic test). |
 | `web/exam.html` + `web/app.js` | The exam screen and its state machine: play → 5 s replay window → record → next, timers, 2-minute notice, difficulty screen, save. |
@@ -150,17 +205,20 @@ related experience) → two advanced questions (change over time, issue and
 opinion). It avoids repeating any topic from the previous three days. A bank of
 32 hard Q14–15-style questions in `app.js` powers the *advanced focus* mode.
 
-### Feedback: two ways to grade
+### Feedback in detail
 
-| | Instant | Nightly (default) |
-|---|---|---|
-| Needs | an Anthropic API key in `config.json` | nothing extra |
-| When | seconds after the exam | by the next morning |
-| Cost | API usage | included in your Claude plan |
-| How | `server.py` sends the result and `prompts/feedback.md` to the Messages API | a scheduled Claude task grades every queued result on your Mac |
+`server.py` (local) and `web/store.js` (online) expose the same small API —
+`/api/set`, `/api/result`, `/api/recording`, `/api/feedback`, `/api/prompt`,
+`/api/feedback/import`, `/api/history`. On `localhost` the pages call the
+server; anywhere else `store.js` answers those calls inside the browser. That is
+why one set of pages works both on GitHub Pages and on your own machine.
 
-The key, if you add one, lives in `config.json` next to the server and is only
-used by the server; the browser never sees it. `config.json` is git-ignored.
+When a test ends the page asks for feedback. If a provider is configured the
+result is sent with the rubric to that model (Anthropic Messages API, or any
+OpenAI-compatible `/chat/completions` endpoint). If not, the result is marked as
+queued and the copy-paste panel appears; `/api/prompt` returns the full prompt
+(rubric + your result) and `/api/feedback/import` accepts the model's reply,
+pulls the JSON object out of it, checks its shape and stores it.
 
 ### Contribution graph
 
@@ -173,7 +231,9 @@ Transcripts, recordings and the detailed feedback are git-ignored and never push
 
 ## Run it yourself
 
-Requirements: macOS, Windows or Linux with **Python 3.9+** and **Chrome**
+Online: nothing — open https://leesk212.github.io/OPIC-Mock-Test/ in Chrome.
+
+Local: macOS, Windows or Linux with **Python 3.9+** and **Chrome**
 (speech recognition is Chrome-only; everything else works in any modern browser).
 
 ```bash
@@ -189,8 +249,8 @@ Optional:
 
 - **Avatar** — put an interviewer image at `web/ava.png` (a generic illustration
   is used otherwise; the official exam avatar is not redistributed here).
-- **Instant feedback** — `cp config.example.json config.json` and fill in
-  `anthropic_api_key` (and `model` if you want a different one).
+- **Automatic feedback** — `cp config.example.json config.json` and keep one
+  block: Anthropic key, OpenAI key, or a local Ollama endpoint.
 - **Tonight's set** — drop a file shaped like `sets/example.json` at
   `sets/<today>.json`, or let a scheduled task write it.
 - **Port** — `OPIC_PORT=9000 python3 server.py`.
@@ -231,7 +291,10 @@ This project came out of a single long conversation with Claude, iterating from
    stay on the learner's machine, and Claude's role shrinks to what it is good
    at — writing the nightly set, grading against the AL rubric, and keeping the
    study log — through scheduled tasks.
-5. **Iterations from real use** — separate setup and exam pages, a 3-question
+5. **Hosting for everyone** — the same pages published on GitHub Pages, with
+   a browser storage layer and grading that works with any chat assistant, an
+   API key or a local model.
+6. **Iterations from real use** — separate setup and exam pages, a 3-question
    default for daily habit, random blocks, a dedicated Q14–15 mode, a visible
    "I can hear you" indicator, a 2-minute notice, more natural TTS, and feedback
    that rewrites the learner's own answer instead of inventing one.

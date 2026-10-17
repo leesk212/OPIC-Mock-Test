@@ -256,8 +256,8 @@
       const saved=await res.json().catch(()=>({}));
       const fbName=saved.name||(SET.date+(TAG?'_'+TAG:''));
       if(window.OPIcFeedback){ $('fbWrap').hidden=false; OPIcFeedback.request($('fbBox'),fbName,resultObj,{statusEl:$('fbStatus')}); $('btnRegrade').onclick=()=>OPIcFeedback.request($('fbBox'),fbName,resultObj,{force:true,statusEl:$('fbStatus')}); }
-      $('saveNote').innerHTML=`<span class="okc">저장됨</span> — 오픽 폴더의 recordings/${SET.date}, results/${SET.date}${TAG?'_'+TAG:''}.json · <a href="feedback.html">기록·피드백</a>`;
-    }catch(e){ $('saveNote').textContent='저장 실패 — 서버가 켜져 있는지 확인하세요. 채점 요청은 복사해서 보내면 돼요.'; }
+      $('saveNote').innerHTML= (window.OPIcStore&&OPIcStore.hosted) ? `<span class="okc">저장됨</span> — 이 브라우저에 보관돼요 · <a href="feedback.html">기록·피드백</a>` : `<span class="okc">저장됨</span> — 오픽 폴더의 recordings/${SET.date}, results/${SET.date}${TAG?'_'+TAG:''}.json · <a href="feedback.html">기록·피드백</a>`;
+    }catch(e){ $('saveNote').textContent= (window.OPIcStore&&OPIcStore.hosted) ? '저장 실패 — 브라우저 저장공간이 막혀 있어요(시크릿 창 등). 채점 요청 문구를 복사해 두세요.' : '저장 실패 — 서버가 켜져 있는지 확인하세요. 채점 요청은 복사해서 보내면 돼요.'; }
   }
   $('btnCopy').onclick=()=>{const t=$('report');navigator.clipboard.writeText(t.value).then(()=>{$('copyNote').textContent='복사됨'}).catch(()=>{t.focus();t.select();$('copyNote').textContent='선택됨 — 직접 복사하세요'})};
 
@@ -315,6 +315,13 @@
     return [fb,false];
   }
   if(PAGE==='setup'){
+    if(window.OPIcStore && OPIcStore.hosted){
+      $('hostedBox').hidden=false;
+      const c=OPIcStore.cfg(); $('gProv').value=c.provider||''; $('gKey').value=c.api_key||''; $('gModel').value=c.model||''; $('gBase').value=c.base_url||'';
+      const sync=()=>{ const v=$('gProv').value; $('gKeyRow').hidden=!v; $('gBaseRow').hidden=(v!=='openai'); $('gModel').placeholder= v==='anthropic'?'claude-sonnet-5-5':(v==='openai'?'gpt-4o-mini':''); };
+      sync(); $('gProv').onchange=sync;
+      $('gSave').onclick=()=>{ const ok=OPIcStore.saveCfg({provider:$('gProv').value,api_key:$('gKey').value.trim(),model:$('gModel').value.trim(),base_url:$('gBase').value.trim()}); $('gNote').textContent= ok?'저장했어요 (이 브라우저에만).':'브라우저 저장공간을 쓸 수 없어요.'; };
+    }
     $('st3').className='step now';
     if(P.get('sampled')==='1'){ $('st3').className='step done'; $('st4').className='step done'; }
     $('setupNote').textContent='오늘 세트를 확인하는 중…';

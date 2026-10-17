@@ -1,4 +1,10 @@
 {
-  "anthropic_api_key": "",
-  "model": "claude-sonnet-5-5"
+  "_comment": "Pick ONE block, delete the others, save as config.json. No config = copy-paste grading.",
+
+  "provider": "anthropic",
+  "api_key": "sk-ant-...",
+  "model": "claude-sonnet-5-5",
+
+  "_openai_example":  { "provider": "openai", "api_key": "sk-...", "model": "gpt-4o-mini" },
+  "_ollama_example":  { "provider": "openai", "base_url": "http://localhost:11434/v1", "api_key": "", "model": "qwen2.5:14b" }
 }

@@ -134,3 +134,8 @@ h1,h2{text-wrap:balance}
 tr.clickable{cursor:pointer}
 tr.clickable:hover td,tr.clickable:focus td{background:var(--blue-soft)}
 a.btn{text-decoration:none;display:inline-block}
+
+.fb-manual{border:1px solid var(--line);padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.fb-manual p,.fb-manual ol{margin:0}.fb-manual ol{padding-left:20px}
+.fb-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fb-paste,.fb-src{width:100%;min-height:120px;font:12.5px/1.5 ui-monospace,Menlo,monospace;border:1px solid var(--line);padding:8px;background:#fafbfc;color:var(--ink)}

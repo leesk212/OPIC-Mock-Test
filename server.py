@@ -12,11 +12,14 @@ Folders next to this file:
   feedback/    YYYY-MM-DD[_TAG].json      AL feedback for a result
   prompts/     feedback.md                grading rubric shared by the API path and the nightly task
 
-Feedback is produced one of two ways:
-  * Instant — put an Anthropic API key in config.json (or ANTHROPIC_API_KEY) and the
-    server grades the result right after the exam.
-  * Nightly — without a key the result is queued (feedback/<name>.pending) and a
-    scheduled Claude task grades every queued result and writes feedback/<name>.json.
+Feedback (see README "Feedback options"):
+  * provider "anthropic"  — Anthropic API key in config.json or ANTHROPIC_API_KEY
+  * provider "openai"     — any OpenAI-compatible endpoint: OpenAI, or a local model via
+                             Ollama / LM Studio (base_url http://localhost:11434/v1, no key)
+  * no provider           — the page shows a ready-made grading prompt to paste into any
+                             chat assistant, and a box to paste the JSON reply back
+  * scheduled task        — results stay queued (feedback/<name>.pending) for a scheduled
+                             Claude task that grades them and writes feedback/<name>.json
 """
 import json
 import os
@@ -46,6 +49,7 @@ def today():
 
 
 def load_config():
+    """Returns dict(provider, key, model, base_url). provider is '' when no grader is configured."""
     cfg = {}
     f = ROOT / "config.json"
     if f.exists():
@@ -53,9 +57,30 @@ def load_config():
             cfg = json.loads(f.read_text(encoding="utf-8"))
         except ValueError:
             sys.stderr.write("config.json is not valid JSON — ignoring it\n")
-    key = os.environ.get("ANTHROPIC_API_KEY") or cfg.get("anthropic_api_key") or ""
-    model = os.environ.get("OPIC_MODEL") or cfg.get("model") or DEFAULT_MODEL
-    return key.strip(), model
+    provider = (os.environ.get("OPIC_PROVIDER") or cfg.get("provider") or "").lower()
+    key = os.environ.get("OPIC_API_KEY") or cfg.get("api_key") or cfg.get("anthropic_api_key") or ""
+    if not provider:
+        if os.environ.get("ANTHROPIC_API_KEY") or cfg.get("anthropic_api_key"):
+            provider = "anthropic"
+            key = key or os.environ.get("ANTHROPIC_API_KEY", "")
+        elif cfg.get("base_url"):
+            provider = "openai"
+    if provider == "anthropic" and not key:
+        key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if provider == "openai" and not key:
+        key = os.environ.get("OPENAI_API_KEY", "")
+    if provider == "anthropic" and not key:
+        provider = ""
+    model = os.environ.get("OPIC_MODEL") or cfg.get("model") or (DEFAULT_MODEL if provider == "anthropic" else "gpt-4o-mini" if provider == "openai" else "")
+    base_url = (cfg.get("base_url") or ("https://api.openai.com/v1" if provider == "openai" else "")).rstrip("/")
+    return {"provider": provider, "key": key.strip(), "model": model, "base_url": base_url}
+
+
+def grading_messages(result):
+    rubric = (ROOT / "prompts" / "feedback.md").read_text(encoding="utf-8")
+    user = ("Grade this OPIc mock-test result. Reply with the JSON object only.\n\n"
+            + json.dumps(result, ensure_ascii=False))
+    return rubric, user
 
 
 def result_name(date, tag):
@@ -69,37 +94,36 @@ def extract_json(text):
     return json.loads(text[start : end + 1])
 
 
-def grade_with_api(result, key, model):
-    rubric = (ROOT / "prompts" / "feedback.md").read_text(encoding="utf-8")
-    payload = {
-        "model": model,
-        "max_tokens": 8000,
-        "system": rubric,
-        "messages": [
-            {
-                "role": "user",
-                "content": "Grade this OPIc mock-test result. Reply with the JSON object only.\n\n"
-                + json.dumps(result, ensure_ascii=False),
-            }
-        ],
-    }
-    req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "content-type": "application/json",
-            "x-api-key": key,
-            "anthropic-version": "2023-06-01",
-        },
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=180) as r:
-        body = json.loads(r.read().decode("utf-8"))
-    text = "".join(b.get("text", "") for b in body.get("content", []) if b.get("type") == "text")
+def _post(url, payload, headers):
+    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
+                                 headers={"content-type": "application/json", **headers}, method="POST")
+    with urllib.request.urlopen(req, timeout=300) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def grade_with_api(result, cfg):
+    system, user = grading_messages(result)
+    if cfg["provider"] == "anthropic":
+        body = _post("https://api.anthropic.com/v1/messages",
+                     {"model": cfg["model"], "max_tokens": 8000, "system": system,
+                      "messages": [{"role": "user", "content": user}]},
+                     {"x-api-key": cfg["key"], "anthropic-version": "2023-06-01"})
+        text = "".join(b.get("text", "") for b in body.get("content", []) if b.get("type") == "text")
+    else:  # OpenAI-compatible chat completions (OpenAI, Ollama, LM Studio, vLLM, ...)
+        headers = {"authorization": f"Bearer {cfg['key']}"} if cfg["key"] else {}
+        body = _post(cfg["base_url"] + "/chat/completions",
+                     {"model": cfg["model"], "temperature": 0.3,
+                      "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]},
+                     headers)
+        text = body["choices"][0]["message"]["content"]
     fb = extract_json(text)
-    fb["model"] = model
-    fb["graded_at"] = datetime.now(KST).isoformat(timespec="seconds")
-    fb["source"] = "api"
+    fb.update({"model": cfg["model"], "graded_at": datetime.now(KST).isoformat(timespec="seconds"), "source": cfg["provider"]})
+    return fb
+
+
+def validate_feedback(fb):
+    if not isinstance(fb, dict) or not isinstance(fb.get("overall"), dict) or not isinstance(fb.get("items"), list):
+        raise ValueError("feedback JSON needs an 'overall' object and an 'items' list")
     return fb
 
 
@@ -142,8 +166,16 @@ class Handler(SimpleHTTPRequestHandler):
         u = urlparse(self.path)
         q = parse_qs(u.query)
         if u.path == "/api/health":
-            key, model = load_config()
-            return self._json(200, {"ok": True, "today": today(), "instant_feedback": bool(key), "model": model})
+            cfg = load_config()
+            return self._json(200, {"ok": True, "today": today(), "instant_feedback": bool(cfg["provider"]),
+                                    "provider": cfg["provider"] or "manual", "model": cfg["model"]})
+        if u.path == "/api/prompt":
+            name = (q.get("name") or [""])[0]
+            f = ROOT / "results" / f"{name}.json"
+            if not (NAME_RE.match(name) and f.exists()):
+                return self._json(404, {"error": "no result"})
+            system, user = grading_messages(json.loads(f.read_text(encoding="utf-8")))
+            return self._json(200, {"prompt": system + "\n\n---\n\n" + user})
         if u.path == "/api/set":
             d = self._date(q)
             f = ROOT / "sets" / f"{d}.json" if d else None
@@ -235,12 +267,12 @@ class Handler(SimpleHTTPRequestHandler):
             st = self._feedback_state(name)
             if st["status"] == "ready" and (q.get("force") or ["0"])[0] != "1":
                 return self._json(200, st)
-            key, model = load_config()
-            if not key:
+            cfg = load_config()
+            if not cfg["provider"]:
                 (fbdir / f"{name}.pending").write_text(datetime.now(KST).isoformat(timespec="seconds"), encoding="utf-8")
                 return self._json(202, {"status": "queued", "name": name})
             try:
-                fb = grade_with_api(json.loads(res.read_text(encoding="utf-8")), key, model)
+                fb = validate_feedback(grade_with_api(json.loads(res.read_text(encoding="utf-8")), cfg))
             except urllib.error.HTTPError as e:
                 detail = e.read().decode("utf-8", "replace")[:300]
                 return self._json(502, {"status": "error", "error": f"API {e.code}: {detail}"})
@@ -257,16 +289,33 @@ class Handler(SimpleHTTPRequestHandler):
                     pass
             return self._json(200, {"status": "ready", "feedback": fb})
 
+        if u.path == "/api/feedback/import":
+            res = ROOT / "results" / f"{name}.json"
+            if not res.exists() or n <= 0 or n > MAX_JSON:
+                return self._json(400, {"error": "unknown result or empty body"})
+            try:
+                fb = validate_feedback(extract_json(self.rfile.read(n).decode("utf-8")))
+            except ValueError as e:
+                return self._json(400, {"status": "error", "error": f"could not read feedback JSON: {e}"})
+            fb.setdefault("source", "manual")
+            fb.setdefault("graded_at", datetime.now(KST).isoformat(timespec="seconds"))
+            fb["name"] = name
+            fbdir = ROOT / "feedback"
+            fbdir.mkdir(exist_ok=True)
+            (fbdir / f"{name}.json").write_text(json.dumps(fb, ensure_ascii=False, indent=2), encoding="utf-8")
+            return self._json(200, {"status": "ready", "feedback": fb})
+
         return self._json(404, {"error": "not found"})
 
 
 if __name__ == "__main__":
     for sub in ("sets", "results", "recordings", "feedback"):
         (ROOT / sub).mkdir(exist_ok=True)
-    key, model = load_config()
+    cfg = load_config()
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"OPIc mock test: http://localhost:{PORT}")
-    print("  feedback: " + (f"instant ({model})" if key else "nightly (no API key in config.json)"))
+    print("  feedback: " + (f"{cfg['provider']} · {cfg['model']}" if cfg["provider"]
+                            else "copy-paste mode (no provider in config.json) — see README"))
     print("  stop: Ctrl+C")
     try:
         srv.serve_forever()

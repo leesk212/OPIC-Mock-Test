@@ -45,7 +45,7 @@ window.OPIcFeedback = (() => {
       if (src.sec != null) sm.appendChild(el('span', 'sub', Math.floor(src.sec / 60) + ':' + String(src.sec % 60).padStart(2, '0')));
       card.appendChild(sm);
       if (src.question) card.appendChild(el('p', 'fb-question', src.question));
-      if (src.audio) { const a = el('audio'); a.controls = true; a.src = '/' + src.audio; a.preload = 'none'; card.appendChild(a); }
+      if (src.audio) { const a = el('audio'); a.controls = true; a.preload = 'none'; card.appendChild(a); (window.OPIcStore ? OPIcStore.audioURL(src.audio) : Promise.resolve('/' + src.audio)).then(u => { if (u) a.src = u; else a.remove(); }); }
       if (it.blockers && it.blockers.length) {
         card.appendChild(el('div', 'lbl', 'AL을 막는 것'));
         const ul = el('ul'); it.blockers.forEach(b => ul.appendChild(el('li', null, b))); card.appendChild(ul);
@@ -84,9 +84,48 @@ window.OPIcFeedback = (() => {
     try { r = await fetch(`/api/feedback?date=${date}${tag ? '&tag=' + tag : ''}${force ? '&force=1' : ''}`, { method: 'POST' }); j = await r.json(); }
     catch (e) { say('서버에 연결하지 못했어요.'); return; }
     if (j.status === 'ready') { say(''); render(box, j.feedback, result); return; }
-    if (j.status === 'queued') { say('API 키가 없어서 오늘 밤 00:15 채점 대기열에 넣었어요. 내일 "기록·피드백"에서 볼 수 있어요.'); return; }
+    if (j.status === 'queued') { say(''); manual(box, name, result, statusEl); return; }
     say('피드백을 만들지 못했어요: ' + (j.error || r.status));
   }
 
-  return { render, request, TYPE };
+  // No grader configured: copy a ready-made prompt into any chat assistant, paste the JSON reply back.
+  async function manual(box, name, result, statusEl) {
+    box.innerHTML = '';
+    const say = t => { if (statusEl) statusEl.textContent = t; };
+    const wrap = el('div', 'fb-manual');
+    wrap.appendChild(el('p', null, '채점 엔진이 설정되어 있지 않아요. 지금 바로 채점하려면:'));
+    const ol = el('ol');
+    ['아래 버튼으로 채점 프롬프트를 복사해요 (채점 기준 + 내 답변이 들어 있어요).',
+     'Claude, ChatGPT, Gemini 등 아무 AI 채팅에 붙여 넣어요.',
+     'AI가 준 답(JSON)을 전부 복사해서 아래 칸에 붙여 넣고 저장해요.'].forEach(t => ol.appendChild(el('li', null, t)));
+    wrap.appendChild(ol);
+    const row = el('div', 'fb-row');
+    const copyBtn = el('button', 'btn blue', '채점 프롬프트 복사'); row.appendChild(copyBtn);
+    const copyNote = el('span', 'note'); row.appendChild(copyNote);
+    wrap.appendChild(row);
+    const src = el('textarea', 'fb-src'); src.readOnly = true; src.hidden = true; wrap.appendChild(src);
+    const ta = el('textarea', 'fb-paste'); ta.placeholder = 'AI 답변(JSON)을 여기에 붙여 넣으세요'; wrap.appendChild(ta);
+    const row2 = el('div', 'fb-row');
+    const save = el('button', 'btn blue', '피드백 저장'); row2.appendChild(save);
+    const saveNote = el('span', 'note'); row2.appendChild(saveNote);
+    wrap.appendChild(row2);
+    wrap.appendChild(el('p', 'note', (window.OPIcStore && OPIcStore.hosted) ? '설정 페이지의 "자동 채점"에 본인 API 키를 넣으면 시험 직후 자동으로 채점돼요. 키는 이 브라우저에만 저장돼요.' : 'API 키(Anthropic·OpenAI)나 로컬 모델(Ollama)을 config.json에 넣으면 시험 직후 자동으로 채점돼요. README의 Feedback options를 참고하세요.'));
+    box.appendChild(wrap);
+    let prompt = '';
+    try { prompt = (await (await fetch('/api/prompt?name=' + name)).json()).prompt || ''; } catch (e) {}
+    src.value = prompt;
+    copyBtn.onclick = () => navigator.clipboard.writeText(prompt).then(() => { copyNote.textContent = '복사됨 — AI 채팅에 붙여 넣으세요'; })
+      .catch(() => { src.hidden = false; src.focus(); src.select(); copyNote.textContent = '선택됨 — 직접 복사하세요'; });
+    save.onclick = async () => {
+      const [date, tag] = name.split('_');
+      saveNote.textContent = '저장 중…';
+      try {
+        const r = await fetch(`/api/feedback/import?date=${date}${tag ? '&tag=' + tag : ''}`, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: ta.value });
+        const j = await r.json();
+        if (j.status === 'ready') { say(''); render(box, j.feedback, result); } else saveNote.textContent = j.error || '저장하지 못했어요.';
+      } catch (e) { saveNote.textContent = '서버에 연결하지 못했어요.'; }
+    };
+  }
+
+  return { render, request, manual, TYPE };
 })();
