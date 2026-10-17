@@ -1,5 +1,12 @@
 # OPIc Mock Test
 
+> **About** — A self-hosted OPIc speaking mock test that looks and runs like the
+> real exam screen: a new AI-generated question set every night, automatic
+> recording with a live transcript, feedback aimed at the Advanced Low (AL)
+> level, and a daily study log that fills your GitHub contribution graph.
+
+![Exam screen while recording](docs/screens/3-exam-recording.png)
+
 A local, self-hosted OPIc speaking practice environment that behaves like the real
 exam screen — avatar, play button, five-second replay, automatic recording, a
 volume meter, the question grid, the orange **Next** button — plus a fresh
@@ -10,7 +17,55 @@ It was built for one learner stuck at IH who wanted daily, realistic practice
 instead of reading scripts. Everything runs on your own computer; your voice
 recordings and transcripts never leave it.
 
+**Contents** — [Screens](#screens) · [A day with it](#a-day-with-it) · [How it works](#how-it-works) · [Run it yourself](#run-it-yourself) · [How it was built](#how-it-was-built)
+
+## Screens
+
+The UI text is Korean because it was built for a Korean learner; the flow is
+the same as the official exam. Screens below use example data and the generic
+avatar that ships with the repo.
+
+### 1 · Setup
+Tonight's set and focus point, number of questions (3 random by default, a
+chosen block, Q14–15 advanced focus, 5, or the full 15), the interviewer voice,
+and a microphone check whose bar moves with your voice.
+
+![Setup page](docs/screens/1-setup.png)
+
+### 2 · Question ready
+The exam screen mirrors the real one: step bar, avatar, red ▶ with the blue
+*Click 'PLAY' button to Listen* bar, a vertical level meter, the question grid,
+and the replay rule in the blue box.
+
+![Exam page before playing](docs/screens/2-exam-ready.png)
+
+### 3 · Answering
+When the question ends, recording starts by itself. The **Recording** badge,
+the green *recording · I can hear you* line and the meter tell you the mic is
+really picking you up; the live transcript fills in as you speak. The ▶ bar
+counts down the five-second window for the single replay.
+
+![Exam page while recording](docs/screens/3-exam-recording.png)
+
+### 4 · Two-minute notice
+After two minutes on one answer a notice asks you to wrap up, and **Next**
+pulses.
+
+![Two-minute notice](docs/screens/4-exam-2min.png)
+
+### 5 · Feedback
+Estimated level and fluency, tomorrow's focus, five sentences to memorize, and
+per question: what blocks AL, corrected sentences, an AL rewrite of *your own*
+answer, a re-answer mission and expressions to reuse. The same view appears at
+the end of the exam (instant mode) and on the history page.
+
+![Feedback page](docs/screens/5-feedback.png)
+
 ---
+
+## A day with it
+
+![Daily routine](docs/daily-routine.png)
 
 ## What a session looks like
 
@@ -47,20 +102,7 @@ recordings and transcripts never leave it.
 
 ## How it works
 
-```mermaid
-flowchart LR
-  subgraph Mac["Your computer"]
-    S["server.py<br/>localhost:8765"]
-    B["Chrome<br/>setup · exam · history pages"]
-    F[("sets/ results/<br/>recordings/ feedback/")]
-    B <-- "HTTP (microphone allowed on localhost)" --> S
-    S <--> F
-  end
-  T1["Scheduled task 23:22<br/>writes tonight's set"] --> F
-  T2["Scheduled task 00:15<br/>grades results, writes study log"] --> F
-  T2 -- "git push (summaries only)" --> G["GitHub<br/>study-log/"]
-  S -. "optional: instant grading" .-> A["Anthropic API"]
-```
+![Architecture](docs/architecture.png)
 
 ### Why a local server
 
