@@ -8,7 +8,11 @@ ROOT="$(pwd)"; PORT=8765; LOCAL="http://localhost:$PORT"
 say(){ printf '%s\n' "$*"; }
 command -v python3 >/dev/null || { say "python3가 필요해요 (xcode-select --install)."; exit 1; }
 
-# 1) exam server
+# 1) exam server — restart it if an older version (without access control) is running
+if curl -s --max-time 1 "$LOCAL/api/health" >/dev/null && ! curl -s --max-time 1 "$LOCAL/api/env.js" | grep -q OPIC_SERVER; then
+  say "서버: 예전 버전이 켜져 있어서 다시 켤게요"
+  lsof -ti tcp:$PORT -sTCP:LISTEN | xargs kill 2>/dev/null; sleep 1
+fi
 if curl -s --max-time 1 "$LOCAL/api/health" >/dev/null; then
   say "서버: 이미 켜져 있어요"
 else
@@ -17,7 +21,10 @@ else
   curl -s --max-time 1 "$LOCAL/api/health" >/dev/null && say "서버: 켰어요 ($LOCAL)" || { say "서버를 켜지 못했어요. server.log를 확인하세요."; exit 1; }
 fi
 
-# 2) tunnel (skip with NO_TUNNEL=1)
+# 2) tunnel (skip with NO_TUNNEL=1). Never expose a server without the access-key check.
+if ! curl -s --max-time 1 "$LOCAL/api/env.js" | grep -q OPIC_SERVER; then
+  say "서버가 접근 키 확인을 지원하지 않아서 터널은 열지 않았어요."; NO_TUNNEL=1
+fi
 if [ "${NO_TUNNEL:-0}" != "1" ]; then
   alive=""
   if [ -f tunnel.json ]; then
