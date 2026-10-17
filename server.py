@@ -14,6 +14,9 @@ Folders next to this file:
 
 Feedback (see README "Feedback options"):
   * provider "anthropic"  — Anthropic API key in config.json or ANTHROPIC_API_KEY
+  * provider "claude"     — the Claude Code CLI (`claude -p`) already signed in on this computer.
+                             Used automatically when `claude` is installed and no API key is set,
+                             so a Claude subscription is enough — no API key needed.
   * provider "openai"     — any OpenAI-compatible endpoint: OpenAI, or a local model via
                              Ollama / LM Studio (base_url http://localhost:11434/v1, no key)
   * no provider           — the page shows a ready-made grading prompt to paste into any
@@ -26,7 +29,10 @@ import json
 import os
 import secrets
 import re
+import shutil
+import subprocess
 import sys
+import threading
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -44,6 +50,7 @@ NAME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}(_[A-Za-z0-9-]{1,16})?$")
 MAX_AUDIO = 60 * 1024 * 1024
 MAX_JSON = 2 * 1024 * 1024
 DEFAULT_MODEL = "claude-sonnet-5-5"
+CODE_VERSION = int(Path(__file__).stat().st_mtime)  # start.command restarts the server when this file changes
 
 
 def access_token():
@@ -63,6 +70,19 @@ TOKEN = None
 
 def today():
     return datetime.now(KST).strftime("%Y-%m-%d")
+
+
+def find_claude():
+    """Path of the Claude Code CLI, or ''. Looks on PATH and in the usual install places."""
+    exe = os.environ.get("OPIC_CLAUDE_BIN") or shutil.which("claude")
+    if exe:
+        return exe
+    home = Path.home()
+    for c in (home / ".claude/local/claude", home / ".local/bin/claude", Path("/opt/homebrew/bin/claude"),
+              Path("/usr/local/bin/claude"), home / ".npm-global/bin/claude"):
+        if c.exists() and os.access(c, os.X_OK):
+            return str(c)
+    return ""
 
 
 def load_config():
@@ -88,6 +108,15 @@ def load_config():
         key = os.environ.get("OPENAI_API_KEY", "")
     if provider == "anthropic" and not key:
         provider = ""
+    claude_bin = ""
+    if provider in ("", "claude"):
+        claude_bin = find_claude()
+        provider = "claude" if claude_bin else ""
+    if provider in ("manual", "none", "queue"):
+        provider = ""
+    if provider == "claude":
+        return {"provider": "claude", "key": "", "model": os.environ.get("OPIC_MODEL") or cfg.get("model") or "",
+                "base_url": "", "bin": claude_bin}
     model = os.environ.get("OPIC_MODEL") or cfg.get("model") or (DEFAULT_MODEL if provider == "anthropic" else "gpt-4o-mini" if provider == "openai" else "")
     base_url = (cfg.get("base_url") or ("https://api.openai.com/v1" if provider == "openai" else "")).rstrip("/")
     return {"provider": provider, "key": key.strip(), "model": model, "base_url": base_url}
@@ -120,7 +149,17 @@ def _post(url, payload, headers):
 
 def grade_with_api(result, cfg):
     system, user = grading_messages(result)
-    if cfg["provider"] == "anthropic":
+    if cfg["provider"] == "claude":
+        # Claude Code in print mode: no tools, the rubric and result go in on stdin.
+        cmd = [cfg["bin"], "-p", "--output-format", "text"]
+        if cfg["model"]:
+            cmd += ["--model", cfg["model"]]
+        run = subprocess.run(cmd, input=system + "\n\n---\n\n" + user, capture_output=True, text=True,
+                             timeout=600, cwd=str(ROOT / "feedback"))
+        if run.returncode != 0:
+            raise RuntimeError("claude CLI: " + (run.stderr or run.stdout).strip()[:300])
+        text = run.stdout
+    elif cfg["provider"] == "anthropic":
         body = _post("https://api.anthropic.com/v1/messages",
                      {"model": cfg["model"], "max_tokens": 8000, "system": system,
                       "messages": [{"role": "user", "content": user}]},
@@ -134,7 +173,7 @@ def grade_with_api(result, cfg):
                      headers)
         text = body["choices"][0]["message"]["content"]
     fb = extract_json(text)
-    fb.update({"model": cfg["model"], "graded_at": datetime.now(KST).isoformat(timespec="seconds"), "source": cfg["provider"]})
+    fb.update({"model": cfg["model"] or ("claude-code" if cfg["provider"] == "claude" else ""), "graded_at": datetime.now(KST).isoformat(timespec="seconds"), "source": cfg["provider"]})
     return fb
 
 
@@ -142,6 +181,47 @@ def validate_feedback(fb):
     if not isinstance(fb, dict) or not isinstance(fb.get("overall"), dict) or not isinstance(fb.get("items"), list):
         raise ValueError("feedback JSON needs an 'overall' object and an 'items' list")
     return fb
+
+
+GRADING = set()          # result names being graded right now
+GRADING_LOCK = threading.Lock()
+
+
+def _grade_job(name, cfg):
+    """Runs in a thread so slow graders never hit the tunnel's ~100 s response limit."""
+    fbdir = ROOT / "feedback"
+    err = fbdir / f"{name}.error"
+    try:
+        res = json.loads((ROOT / "results" / f"{name}.json").read_text(encoding="utf-8"))
+        fb = validate_feedback(grade_with_api(res, cfg))
+        fb["name"] = name
+        (fbdir / f"{name}.json").write_text(json.dumps(fb, ensure_ascii=False, indent=2), encoding="utf-8")
+        for stale in (fbdir / f"{name}.pending", err):
+            if stale.exists():
+                stale.write_text("", encoding="utf-8")  # cleared marker; harmless if it cannot be removed
+                try:
+                    stale.unlink()
+                except OSError:
+                    pass
+        sys.stderr.write(f"graded {name} with {cfg['provider']}\n")
+    except urllib.error.HTTPError as e:
+        err.write_text(f"API {e.code}: " + e.read().decode("utf-8", "replace")[:300], encoding="utf-8")
+    except Exception as e:  # network, timeout, CLI failure, unparsable reply
+        err.write_text(str(e)[:300] or type(e).__name__, encoding="utf-8")
+    finally:
+        with GRADING_LOCK:
+            GRADING.discard(name)
+
+
+def start_grading(name, cfg):
+    with GRADING_LOCK:
+        if name in GRADING:
+            return
+        GRADING.add(name)
+    err = ROOT / "feedback" / f"{name}.error"
+    if err.exists():
+        err.write_text("", encoding="utf-8")
+    threading.Thread(target=_grade_job, args=(name, cfg), daemon=True).start()
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -213,6 +293,11 @@ class Handler(SimpleHTTPRequestHandler):
                 return {"status": "ready", "feedback": json.loads(fb.read_text(encoding="utf-8"))}
             except ValueError:
                 return {"status": "error", "error": "feedback file is not valid JSON"}
+        if name in GRADING:
+            return {"status": "grading"}
+        err = ROOT / "feedback" / f"{name}.error"
+        if err.exists() and err.read_text(encoding="utf-8").strip():
+            return {"status": "error", "error": err.read_text(encoding="utf-8").strip()}
         if (ROOT / "feedback" / f"{name}.pending").exists():
             return {"status": "queued"}
         return {"status": "none"}
@@ -234,7 +319,8 @@ class Handler(SimpleHTTPRequestHandler):
         if u.path == "/api/health":
             cfg = load_config()
             return self._json(200, {"ok": True, "today": today(), "instant_feedback": bool(cfg["provider"]),
-                                    "provider": cfg["provider"] or "manual", "model": cfg["model"]})
+                                    "provider": cfg["provider"] or "manual", "model": cfg["model"],
+                                    "code": CODE_VERSION})
         if u.path == "/api/prompt":
             name = (q.get("name") or [""])[0]
             f = ROOT / "results" / f"{name}.json"
@@ -339,23 +425,8 @@ class Handler(SimpleHTTPRequestHandler):
             if not cfg["provider"]:
                 (fbdir / f"{name}.pending").write_text(datetime.now(KST).isoformat(timespec="seconds"), encoding="utf-8")
                 return self._json(202, {"status": "queued", "name": name})
-            try:
-                fb = validate_feedback(grade_with_api(json.loads(res.read_text(encoding="utf-8")), cfg))
-            except urllib.error.HTTPError as e:
-                detail = e.read().decode("utf-8", "replace")[:300]
-                return self._json(502, {"status": "error", "error": f"API {e.code}: {detail}"})
-            except Exception as e:  # network, timeout, unparsable reply
-                return self._json(502, {"status": "error", "error": str(e)[:300]})
-            fb["name"] = name
-            (fbdir / f"{name}.json").write_text(json.dumps(fb, ensure_ascii=False, indent=2), encoding="utf-8")
-            pend = fbdir / f"{name}.pending"
-            if pend.exists():
-                pend.write_text("", encoding="utf-8")  # cleared marker; harmless if it cannot be removed
-                try:
-                    pend.unlink()
-                except OSError:
-                    pass
-            return self._json(200, {"status": "ready", "feedback": fb})
+            start_grading(name, cfg)
+            return self._json(202, {"status": "grading", "name": name, "provider": cfg["provider"]})
 
         if u.path == "/api/feedback/import":
             res = ROOT / "results" / f"{name}.json"

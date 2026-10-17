@@ -85,7 +85,19 @@ window.OPIcFeedback = (() => {
     catch (e) { say('서버에 연결하지 못했어요.'); return; }
     if (j.status === 'ready') { say(''); render(box, j.feedback, result); return; }
     if (j.status === 'queued') { say(''); manual(box, name, result, statusEl); return; }
-    say('피드백을 만들지 못했어요: ' + (j.error || r.status));
+    if (j.status === 'grading') {
+      // Graded in the background on the server; check back until it is ready (up to ~8 minutes).
+      const t0 = Date.now();
+      while (Date.now() - t0 < 8 * 60 * 1000) {
+        say(`AL 첨삭 만드는 중… ${Math.round((Date.now() - t0) / 1000)}초 (보통 1~2분)`);
+        await new Promise(res => setTimeout(res, 4000));
+        try { j = await (await fetch(`/api/feedback?name=${encodeURIComponent(name)}`)).json(); } catch (e) { continue; }
+        if (j.status === 'ready') { say(''); render(box, j.feedback, result); return; }
+        if (j.status === 'error' || j.status === 'none') break;
+      }
+    }
+    say('자동 채점이 안 됐어요' + (j.error ? ` (${j.error})` : '') + ' — 아래 방법으로 채점할 수 있어요.');
+    manual(box, name, result, null);
   }
 
   // No grader configured: copy a ready-made prompt into any chat assistant, paste the JSON reply back.

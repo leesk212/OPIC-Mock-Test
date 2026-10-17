@@ -8,9 +8,11 @@ ROOT="$(pwd)"; PORT=8765; LOCAL="http://localhost:$PORT"
 say(){ printf '%s\n' "$*"; }
 command -v python3 >/dev/null || { say "python3가 필요해요 (xcode-select --install)."; exit 1; }
 
-# 1) exam server — restart it if an older version (without access control) is running
-if curl -s --max-time 1 "$LOCAL/api/health" >/dev/null && ! curl -s --max-time 1 "$LOCAL/api/env.js" | grep -q OPIC_SERVER; then
-  say "서버: 예전 버전이 켜져 있어서 다시 켤게요"
+# 1) exam server — restart it if the running copy is older than server.py on disk
+cur=$(python3 -c "import os;print(int(os.path.getmtime('server.py')))")
+run=$(curl -s --max-time 1 "$LOCAL/api/health" | python3 -c "import json,sys;print(json.load(sys.stdin).get('code',''))" 2>/dev/null)
+if curl -s --max-time 1 "$LOCAL/api/health" >/dev/null && [ "$run" != "$cur" ]; then
+  say "서버: 새 버전으로 다시 켤게요"
   lsof -ti tcp:$PORT -sTCP:LISTEN | xargs kill 2>/dev/null; sleep 1
 fi
 if curl -s --max-time 1 "$LOCAL/api/health" >/dev/null; then
@@ -20,6 +22,13 @@ else
   for i in $(seq 1 20); do curl -s --max-time 1 "$LOCAL/api/health" >/dev/null && break; sleep 0.5; done
   curl -s --max-time 1 "$LOCAL/api/health" >/dev/null && say "서버: 켰어요 ($LOCAL)" || { say "서버를 켜지 못했어요. server.log를 확인하세요."; exit 1; }
 fi
+
+prov=$(curl -s --max-time 1 "$LOCAL/api/health" | python3 -c "import json,sys;print(json.load(sys.stdin).get('provider',''))" 2>/dev/null)
+case "$prov" in
+  claude) say "채점: Claude Code(claude)로 시험 끝나면 자동 첨삭" ;;
+  manual|"") say "채점: 자동 채점 꺼짐 — claude(Claude Code)를 설치하거나 config.json에 키를 넣으면 자동" ;;
+  *) say "채점: $prov API로 자동 첨삭" ;;
+esac
 
 # 2) tunnel (skip with NO_TUNNEL=1). Never expose a server without the access-key check.
 if ! curl -s --max-time 1 "$LOCAL/api/env.js" | grep -q OPIC_SERVER; then
